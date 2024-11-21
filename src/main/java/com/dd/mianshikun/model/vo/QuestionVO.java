@@ -12,8 +12,7 @@ import java.util.List;
 /**
  * 题目视图
  *
- * @author <a href="https://github.com/lidd">程序员鱼皮</a>
- * @from <a href="https://www.code-nav.cn">编程导航学习圈</a>
+  
  */
 @Data
 public class QuestionVO implements Serializable {
@@ -32,6 +31,11 @@ public class QuestionVO implements Serializable {
      * 内容
      */
     private String content;
+
+    /**
+     * 推荐答案
+     */
+    private String answer;
 
     /**
      * 创建用户 id
