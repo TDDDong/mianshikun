@@ -1,18 +1,25 @@
 package com.dd.mianshikun.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.dd.mianshikun.common.BaseResponse;
 import com.dd.mianshikun.common.ErrorCode;
+import com.dd.mianshikun.common.ResultUtils;
 import com.dd.mianshikun.constant.CommonConstant;
 import com.dd.mianshikun.exception.ThrowUtils;
 import com.dd.mianshikun.mapper.QuestionMapper;
 import com.dd.mianshikun.model.dto.question.QuestionQueryRequest;
 import com.dd.mianshikun.model.entity.Question;
+import com.dd.mianshikun.model.entity.QuestionBankQuestion;
 import com.dd.mianshikun.model.entity.User;
 import com.dd.mianshikun.model.vo.QuestionVO;
 import com.dd.mianshikun.model.vo.UserVO;
+import com.dd.mianshikun.service.QuestionBankQuestionService;
 import com.dd.mianshikun.service.QuestionService;
 import com.dd.mianshikun.service.UserService;
 import com.dd.mianshikun.utils.SqlUtils;
@@ -39,6 +46,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private QuestionBankQuestionService questionBankQuestionService;
 
     /**
      * 校验数据
@@ -85,6 +95,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         String sortOrder = questionQueryRequest.getSortOrder();
         List<String> tagList = questionQueryRequest.getTags();
         Long userId = questionQueryRequest.getUserId();
+        String answer = questionQueryRequest.getAnswer();
         // todo 补充需要的查询条件
         // 从多字段中搜索
         if (StringUtils.isNotBlank(searchText)) {
@@ -94,6 +105,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         // 模糊查询
         queryWrapper.like(StringUtils.isNotBlank(title), "title", title);
         queryWrapper.like(StringUtils.isNotBlank(content), "content", content);
+        queryWrapper.like(StringUtils.isNotBlank(answer), "answer", answer);
         // JSON 数组查询
         if (CollUtil.isNotEmpty(tagList)) {
             for (String tag : tagList) {
@@ -176,6 +188,35 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
         questionVOPage.setRecords(questionVOList);
         return questionVOPage;
+    }
+
+    /**
+     * 分页获取题目列表（仅管理员可用）
+     *
+     * @param questionQueryRequest
+     * @return
+     */
+    public Page<Question> listQuestionByPage(QuestionQueryRequest questionQueryRequest) {
+        long current = questionQueryRequest.getCurrent();
+        long size = questionQueryRequest.getPageSize();
+        //题目表的查询条件
+        QueryWrapper<Question> queryWrapper = this.getQueryWrapper(questionQueryRequest);
+        //获取查询条件中的题库id
+        Long questionBankId = questionQueryRequest.getQuestionBankId();
+        if (questionBankId != null) {
+            LambdaQueryWrapper<QuestionBankQuestion> questionLambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                    .select(QuestionBankQuestion::getQuestionId)  //只查出需要的字段 节省性能
+                    .eq(QuestionBankQuestion::getQuestionBankId, questionBankId); //对题库表id进行比较
+            List<QuestionBankQuestion> questionList = questionBankQuestionService.list(questionLambdaQueryWrapper);
+            if (CollectionUtils.isNotEmpty(questionList)) {
+                //取出题目id放到集合中
+                Set<Long> questionIdList = questionList.stream().map(QuestionBankQuestion::getQuestionId).collect(Collectors.toSet());
+                queryWrapper.in("id", questionIdList);
+            }
+        }
+        // 查询数据库
+        Page<Question> questionPage = this.page(new Page<>(current, size), queryWrapper);
+        return questionPage;
     }
 
 }
