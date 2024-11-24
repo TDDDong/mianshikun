@@ -26,6 +26,7 @@ import com.dd.mianshikun.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -48,6 +49,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
     private UserService userService;
 
     @Resource
+    @Lazy
     private QuestionBankQuestionService questionBankQuestionService;
 
     /**

@@ -1,32 +1,21 @@
 package com.dd.mianshikun.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dd.mianshikun.annotation.AuthCheck;
 import com.dd.mianshikun.common.BaseResponse;
 import com.dd.mianshikun.common.DeleteRequest;
 import com.dd.mianshikun.common.ErrorCode;
 import com.dd.mianshikun.common.ResultUtils;
 import com.dd.mianshikun.config.WxOpenConfig;
 import com.dd.mianshikun.constant.UserConstant;
-import com.dd.mianshikun.model.entity.User;
-import com.dd.mianshikun.service.UserService;
-import com.dd.mianshikun.service.impl.UserServiceImpl;
-import com.dd.mianshikun.annotation.AuthCheck;
 import com.dd.mianshikun.exception.BusinessException;
 import com.dd.mianshikun.exception.ThrowUtils;
-import com.dd.mianshikun.model.dto.user.UserAddRequest;
-import com.dd.mianshikun.model.dto.user.UserLoginRequest;
-import com.dd.mianshikun.model.dto.user.UserQueryRequest;
-import com.dd.mianshikun.model.dto.user.UserRegisterRequest;
-import com.dd.mianshikun.model.dto.user.UserUpdateMyRequest;
-import com.dd.mianshikun.model.dto.user.UserUpdateRequest;
+import com.dd.mianshikun.model.dto.user.*;
+import com.dd.mianshikun.model.entity.User;
 import com.dd.mianshikun.model.vo.LoginUserVO;
 import com.dd.mianshikun.model.vo.UserVO;
-
-import java.util.List;
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.dd.mianshikun.service.UserService;
+import com.dd.mianshikun.service.impl.UserServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 import me.chanjar.weixin.common.bean.oauth2.WxOAuth2AccessToken;
@@ -34,12 +23,12 @@ import me.chanjar.weixin.mp.api.WxMpService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.util.DigestUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 
 /**
  * 用户接口
@@ -314,5 +303,24 @@ public class UserController {
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 更新个人信息
+     * @param request
+     * @return 当前是否已经签到成功
+     */
+    @PostMapping("/add/sign_in")
+    public BaseResponse<Boolean> addUserSignIn(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        boolean result = userService.addUserSignIn(loginUser.getId());
+        return ResultUtils.success(result);
+    }
+
+    @GetMapping("/get/sign_in")
+    public BaseResponse<List<Integer>> getUserSignInRecord(Integer year, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        List<Integer> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
+        return ResultUtils.success(userSignInRecord);
     }
 }
