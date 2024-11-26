@@ -23,4 +23,11 @@
         editTime,createTime,updateTime,
         isDelete
     </sql>
+
+    <select id="listQuestionWithDelete" resultType="com.dd.mianshikun.model.entity.Question">
+        select *
+        from question
+        where updateTime >= #{minUpdateTime}
+    </select>
+
 </mapper>
