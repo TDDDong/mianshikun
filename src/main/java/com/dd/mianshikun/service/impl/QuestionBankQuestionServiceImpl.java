@@ -35,9 +35,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -207,9 +212,12 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
         ThrowUtils.throwIf(questionBankId == null || questionBankId <= 0, ErrorCode.PARAMS_ERROR, "题库非法");
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
         //查询出数据库中存在的题目列表
-        List<Question> questionList = questionService.listByIds(questionIdList);
+        LambdaQueryWrapper<Question> questionLambdaQueryWrapper = Wrappers.lambdaQuery(Question.class)
+                .select(Question::getId)
+                .in(Question::getId, questionIdList);
+        //调用listObjs方法直接获取到所需字段即可 无需返回整个对象
+        List<Long> validQuestionIdList = questionService.listObjs(questionLambdaQueryWrapper, obj -> (Long) obj);
         //判断题目是否存在
-        List<Long> validQuestionIdList = questionList.stream().map(Question::getId).collect(Collectors.toList());
         ThrowUtils.throwIf(CollectionUtils.isEmpty(validQuestionIdList), ErrorCode.PARAMS_ERROR, "合法的题目列表为空");
         //判断要绑定的题库是否存在
         QuestionBank questionBank = questionBankService.getById(questionBankId);
@@ -223,6 +231,17 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
         validQuestionIdList = validQuestionIdList.stream().filter(questionId -> !noExistIdSet.contains(questionId)).collect(Collectors.toList());
         //最后对过滤后的需要绑定的题目进行判断
         ThrowUtils.throwIf(CollectionUtils.isEmpty(validQuestionIdList), ErrorCode.PARAMS_ERROR, "所有的题目都已存于题库中");
+        // 自定义线程池
+        ThreadPoolExecutor customExecutor = new ThreadPoolExecutor(
+                4,                         // 核心线程数
+                10,                        // 最大线程数
+                60L,                       // 线程空闲存活时间
+                TimeUnit.SECONDS,           // 存活时间单位
+                new LinkedBlockingQueue<>(1000),  // 阻塞队列容量
+                new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略：由调用线程处理任务
+        );
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
         //执行插入
         int batchSize = 1000;
         int totalQuestionSize = validQuestionIdList.size();
@@ -241,8 +260,16 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
              * 事务是基于代理实现的 这里为了避免事务失效 要使用代理对象来调用内部方法
              */
             QuestionBankQuestionService questionBankQuestionService = (QuestionBankQuestionServiceImpl) AopContext.currentProxy();
-            questionBankQuestionService.batchAddQuestionsToBankInner(questionBankQuestionList);
+            //异步处理每批数据 将任务都添加到异步任务列表中 (利用自定义线程池)
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                questionBankQuestionService.batchAddQuestionsToBankInner(questionBankQuestionList);
+            }, customExecutor);
+            futures.add(future);
         }
+        //等待所有批次都完成操作
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        //关闭线程池
+        customExecutor.shutdown();
     }
 
     /**
@@ -252,28 +279,22 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchAddQuestionsToBankInner(List<QuestionBankQuestion> questionBankQuestions) {
-        for (QuestionBankQuestion questionBankQuestion : questionBankQuestions) {
-            long questionId = questionBankQuestion.getQuestionId();
-            long questionBankId = questionBankQuestion.getQuestionBankId();
-            try {
-                boolean result = this.save(questionBankQuestion);
-                ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
-            } catch (DataIntegrityViolationException e) {
-                log.error("数据库唯一键冲突或违反其他完整性约束，题目 id: {}, 题库 id: {}, 错误信息: {}",
-                        questionId, questionBankId, e.getMessage());
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "题目已存在于该题库，无法重复添加");
-            } catch (DataAccessException e) {
-                log.error("数据库连接问题、事务问题等导致操作失败，题目 id: {}, 题库 id: {}, 错误信息: {}",
-                        questionId, questionBankId, e.getMessage());
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "数据库操作失败");
-            } catch (Exception e) {
-                // 捕获其他异常，做通用处理
-                log.error("添加题目到题库时发生未知错误，题目 id: {}, 题库 id: {}, 错误信息: {}",
-                        questionId, questionBankId, e.getMessage());
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
-            }
+        try {
+            boolean result = this.saveBatch(questionBankQuestions);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
+        } catch (DataIntegrityViolationException e) {
+            log.error("数据库唯一键冲突或违反其他完整性约束, 错误信息: {}", e.getMessage());
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "题目已存在于该题库，无法重复添加");
+        } catch (DataAccessException e) {
+            log.error("数据库连接问题、事务问题等导致操作失败, 错误信息: {}", e.getMessage());
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "数据库操作失败");
+        } catch (Exception e) {
+            // 捕获其他异常，做通用处理
+            log.error("添加题目到题库时发生未知错误，错误信息: {}", e.getMessage());
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
         }
     }
+
 
 
     /**
