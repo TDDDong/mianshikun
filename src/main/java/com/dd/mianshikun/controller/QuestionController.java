@@ -15,10 +15,7 @@ import com.dd.mianshikun.common.ResultUtils;
 import com.dd.mianshikun.constant.UserConstant;
 import com.dd.mianshikun.exception.BusinessException;
 import com.dd.mianshikun.exception.ThrowUtils;
-import com.dd.mianshikun.model.dto.question.QuestionAddRequest;
-import com.dd.mianshikun.model.dto.question.QuestionEditRequest;
-import com.dd.mianshikun.model.dto.question.QuestionQueryRequest;
-import com.dd.mianshikun.model.dto.question.QuestionUpdateRequest;
+import com.dd.mianshikun.model.dto.question.*;
 import com.dd.mianshikun.model.entity.Question;
 import com.dd.mianshikun.model.entity.QuestionBankQuestion;
 import com.dd.mianshikun.model.entity.User;
@@ -252,4 +249,20 @@ public class QuestionController {
     }
 
     // endregion
+
+    /**
+     * 批量删除题目接口（管理员专用）
+     * @param questionBatchDeleteRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/delete/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchDeleteQuestions(@RequestBody QuestionBatchDeleteRequest questionBatchDeleteRequest,
+                                                      HttpServletRequest request) {
+        ThrowUtils.throwIf(questionBatchDeleteRequest == null, ErrorCode.PARAMS_ERROR);
+        questionService.batchDeleteQuestions(questionBatchDeleteRequest.getQuestionIdList());
+        return ResultUtils.success(true);
+    }
+
 }
