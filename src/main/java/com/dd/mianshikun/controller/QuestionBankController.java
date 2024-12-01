@@ -18,9 +18,11 @@ import com.dd.mianshikun.model.entity.Question;
 import com.dd.mianshikun.model.entity.QuestionBank;
 import com.dd.mianshikun.model.entity.User;
 import com.dd.mianshikun.model.vo.QuestionBankVO;
+import com.dd.mianshikun.model.vo.QuestionVO;
 import com.dd.mianshikun.service.QuestionBankService;
 import com.dd.mianshikun.service.QuestionService;
 import com.dd.mianshikun.service.UserService;
+import com.jd.platform.hotkey.client.callback.JdHotKeyStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -134,14 +136,27 @@ public class QuestionBankController {
     /**
      * 根据 id 获取题库（封装类）
      *
-     * @param id
-     * @return
+     * @param questionBankQueryRequest
+     * @param request
+     * @return QuestionBankVO
      */
     @GetMapping("/get/vo")
     public BaseResponse<QuestionBankVO> getQuestionBankVOById(QuestionBankQueryRequest questionBankQueryRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(questionBankQueryRequest == null, ErrorCode.PARAMS_ERROR);
         Long id = questionBankQueryRequest.getId();
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        //利用京东hotkey判断是否为热点数据 是的话就从本地缓存中取值
+        String key = "bank_detail_" + id;
+        if (JdHotKeyStore.isHotKey(key)) {
+            /**
+             * 这里使用get方法 不使用getValue方法（isHotKey+get的结合体）
+             */
+            Object cachedQuestionBankVO = JdHotKeyStore.get(key);
+            if (cachedQuestionBankVO != null) {
+                //如何本地缓存中有值 直接返回缓存中的值
+                return ResultUtils.success((QuestionBankVO) cachedQuestionBankVO);
+            }
+        }
         // 查询数据库
         QuestionBank questionBank = questionBankService.getById(id);
         ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR);
@@ -153,6 +168,8 @@ public class QuestionBankController {
             Page<Question> questionPage = questionService.listQuestionByPage(questionQueryRequest);
             questionBankVO.setQuestionPage(questionPage);
         }
+        //设置本地缓存 （是热键的前提下 才会在本地缓存设置值）
+        JdHotKeyStore.smartSet(key, questionBankVO);
         // 获取封装类
         return ResultUtils.success(questionBankVO);
     }

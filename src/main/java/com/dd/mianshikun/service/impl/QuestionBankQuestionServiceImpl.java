@@ -225,10 +225,12 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
         //对题目题库关系表进行过滤 防止重复插入
         LambdaQueryWrapper<QuestionBankQuestion> questionBankQuestionLambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
                 .eq(QuestionBankQuestion::getQuestionBankId, questionBankId)
-                .notIn(QuestionBankQuestion::getQuestionId, validQuestionIdList);
-        List<QuestionBankQuestion> noExistList = this.list(questionBankQuestionLambdaQueryWrapper);
-        Set<Long> noExistIdSet = noExistList.stream().map(QuestionBankQuestion::getQuestionId).collect(Collectors.toSet());
-        validQuestionIdList = validQuestionIdList.stream().filter(questionId -> !noExistIdSet.contains(questionId)).collect(Collectors.toList());
+                .in(QuestionBankQuestion::getQuestionId, validQuestionIdList);
+        List<QuestionBankQuestion> existList = this.list(questionBankQuestionLambdaQueryWrapper);
+        //查找存在该题库中的题目
+        Set<Long> existIdSet = existList.stream().map(QuestionBankQuestion::getQuestionId).collect(Collectors.toSet());
+        //要过滤掉已经存在该题库中的题目
+        validQuestionIdList = validQuestionIdList.stream().filter(questionId -> !existIdSet.contains(questionId)).collect(Collectors.toList());
         //最后对过滤后的需要绑定的题目进行判断
         ThrowUtils.throwIf(CollectionUtils.isEmpty(validQuestionIdList), ErrorCode.PARAMS_ERROR, "所有的题目都已存于题库中");
         // 自定义线程池
