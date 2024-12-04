@@ -1,7 +1,12 @@
 package com.dd.mianshikun.controller;
 
+import com.alibaba.csp.sentinel.Entry;
+import com.alibaba.csp.sentinel.EntryType;
+import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.Tracer;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dd.mianshikun.annotation.AuthCheck;
 import com.dd.mianshikun.common.BaseResponse;
@@ -202,8 +207,7 @@ public class QuestionBankController {
      */
     @PostMapping("/list/page/vo")
     @SentinelResource(value = "listQuestionBankVOByPage",
-            blockHandler = "handleBlockException",
-            fallback = "handleFallback")
+            blockHandler = "handleBlockException")
     public BaseResponse<Page<QuestionBankVO>> listQuestionBankVOByPage(@RequestBody QuestionBankQueryRequest questionBankQueryRequest,
                                                                HttpServletRequest request) {
         long current = questionBankQueryRequest.getCurrent();
@@ -220,12 +224,18 @@ public class QuestionBankController {
     /**
      * listQuestionBankVOByPage 流控操作
      * 限流：提示“系统压力过大，请耐心等待”
+     * 熔断：执行降级操作
      */
     public BaseResponse<Page<QuestionBankVO>> handleBlockException(@RequestBody QuestionBankQueryRequest questionBankQueryRequest,
                                                                    HttpServletRequest request, BlockException ex) {
+        // 降级操作
+        if (ex instanceof DegradeException) {
+            return handleFallback(questionBankQueryRequest, request, ex);
+        }
         // 限流操作
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统压力过大，请耐心等待");
     }
+
 
     /**
      * listQuestionBankVOByPage 降级操作：直接返回本地数据
