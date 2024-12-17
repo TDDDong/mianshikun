@@ -10,6 +10,7 @@ import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dd.mianshikun.annotation.AuthCheck;
+import com.dd.mianshikun.annotation.HotKeyCheck;
 import com.dd.mianshikun.common.BaseResponse;
 import com.dd.mianshikun.common.DeleteRequest;
 import com.dd.mianshikun.common.ErrorCode;
@@ -149,22 +150,23 @@ public class QuestionBankController {
      * @return QuestionBankVO
      */
     @GetMapping("/get/vo")
+    @HotKeyCheck
     public BaseResponse<QuestionBankVO> getQuestionBankVOById(QuestionBankQueryRequest questionBankQueryRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(questionBankQueryRequest == null, ErrorCode.PARAMS_ERROR);
         Long id = questionBankQueryRequest.getId();
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         //利用京东hotkey判断是否为热点数据 是的话就从本地缓存中取值
-        String key = "bank_detail_" + id;
-        if (JdHotKeyStore.isHotKey(key)) {
-            /**
+        //String key = "bank_detail_" + id;
+        /*if (JdHotKeyStore.isHotKey(key)) {
+            *//**
              * 这里使用get方法 不使用getValue方法（isHotKey+get的结合体）
-             */
+             *//*
             Object cachedQuestionBankVO = JdHotKeyStore.get(key);
             if (cachedQuestionBankVO != null) {
                 //如何本地缓存中有值 直接返回缓存中的值
                 return ResultUtils.success((QuestionBankVO) cachedQuestionBankVO);
             }
-        }
+        }*/
         // 查询数据库
         QuestionBank questionBank = questionBankService.getById(id);
         ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR);
@@ -177,7 +179,8 @@ public class QuestionBankController {
             questionBankVO.setQuestionPage(questionPage);
         }
         //设置本地缓存 （是热键的前提下 才会在本地缓存设置值）
-        JdHotKeyStore.smartSet(key, questionBankVO);
+        //JdHotKeyStore.smartSet(key, questionBankVO);
+
         // 获取封装类
         return ResultUtils.success(questionBankVO);
     }
