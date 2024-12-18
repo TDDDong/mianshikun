@@ -15,6 +15,7 @@ import com.dd.mianshikun.common.BaseResponse;
 import com.dd.mianshikun.common.DeleteRequest;
 import com.dd.mianshikun.common.ErrorCode;
 import com.dd.mianshikun.common.ResultUtils;
+import com.dd.mianshikun.constant.ClassConstant;
 import com.dd.mianshikun.constant.UserConstant;
 import com.dd.mianshikun.exception.BusinessException;
 import com.dd.mianshikun.exception.ThrowUtils;
@@ -150,7 +151,7 @@ public class QuestionBankController {
      * @return QuestionBankVO
      */
     @GetMapping("/get/vo")
-    @HotKeyCheck
+    @HotKeyCheck(value = ClassConstant.QUESTIONBANK)
     public BaseResponse<QuestionBankVO> getQuestionBankVOById(QuestionBankQueryRequest questionBankQueryRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(questionBankQueryRequest == null, ErrorCode.PARAMS_ERROR);
         Long id = questionBankQueryRequest.getId();

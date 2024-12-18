@@ -16,10 +16,12 @@ import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dd.mianshikun.annotation.AuthCheck;
+import com.dd.mianshikun.annotation.HotKeyCheck;
 import com.dd.mianshikun.common.BaseResponse;
 import com.dd.mianshikun.common.DeleteRequest;
 import com.dd.mianshikun.common.ErrorCode;
 import com.dd.mianshikun.common.ResultUtils;
+import com.dd.mianshikun.constant.ClassConstant;
 import com.dd.mianshikun.constant.UserConstant;
 import com.dd.mianshikun.exception.BusinessException;
 import com.dd.mianshikun.exception.ThrowUtils;
@@ -30,6 +32,7 @@ import com.dd.mianshikun.model.entity.Question;
 import com.dd.mianshikun.model.entity.QuestionBank;
 import com.dd.mianshikun.model.entity.QuestionBankQuestion;
 import com.dd.mianshikun.model.entity.User;
+import com.dd.mianshikun.model.enums.ClassPrefixEnum;
 import com.dd.mianshikun.model.vo.QuestionBankVO;
 import com.dd.mianshikun.model.vo.QuestionVO;
 import com.dd.mianshikun.service.QuestionBankQuestionService;
@@ -155,6 +158,7 @@ public class QuestionController {
      * @return
      */
     @GetMapping("/get/vo")
+    @HotKeyCheck(value = ClassConstant.QUESTION)
     public BaseResponse<QuestionVO> getQuestionVOById(long id, HttpServletRequest request) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         // 检测和处置爬虫
