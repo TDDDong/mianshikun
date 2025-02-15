@@ -2,7 +2,6 @@ package com.dd.mianshikun.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
-import cn.hutool.json.JSONString;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.EntryType;
@@ -10,12 +9,7 @@ import com.alibaba.csp.sentinel.SphU;
 import com.alibaba.csp.sentinel.Tracer;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.dd.mianshikun.annotation.AuthCheck;
 import com.dd.mianshikun.annotation.HotKeyCheck;
 import com.dd.mianshikun.common.BaseResponse;
 import com.dd.mianshikun.common.DeleteRequest;
@@ -25,15 +19,11 @@ import com.dd.mianshikun.constant.ClassConstant;
 import com.dd.mianshikun.constant.UserConstant;
 import com.dd.mianshikun.exception.BusinessException;
 import com.dd.mianshikun.exception.ThrowUtils;
+import com.dd.mianshikun.manager.AiManager;
 import com.dd.mianshikun.manager.CounterManager;
 import com.dd.mianshikun.model.dto.question.*;
-import com.dd.mianshikun.model.dto.questionBank.QuestionBankQueryRequest;
 import com.dd.mianshikun.model.entity.Question;
-import com.dd.mianshikun.model.entity.QuestionBank;
-import com.dd.mianshikun.model.entity.QuestionBankQuestion;
 import com.dd.mianshikun.model.entity.User;
-import com.dd.mianshikun.model.enums.ClassPrefixEnum;
-import com.dd.mianshikun.model.vo.QuestionBankVO;
 import com.dd.mianshikun.model.vo.QuestionVO;
 import com.dd.mianshikun.service.QuestionBankQuestionService;
 import com.dd.mianshikun.service.QuestionService;
@@ -44,7 +34,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -66,6 +55,9 @@ public class QuestionController {
 
     @Resource
     private QuestionBankQuestionService questionBankQuestionService;
+
+    @Resource
+    private AiManager aiManager;
 
     // region 增删改查
 
@@ -94,6 +86,37 @@ public class QuestionController {
         // 返回新写入的数据 id
         long newQuestionId = question.getId();
         return ResultUtils.success(newQuestionId);
+    }
+
+    private static final String GENERATOR_ANSWER_SYSTEM_MESSAGE = "你是一位严谨的面试答题专家，我会给你如下信息：\n" +
+            "```\n" +
+            "面试题目\n" +
+            "```\n" +
+            "\n" +
+            "请你根据上述信息，按照以下步骤来答题：\n" +
+            "1. 要求：题解尽量简短，能围绕我提供的题目内容来回答，不能有重复内容\n" +
+            "2. 严格按照下面的 json 格式输出题目和选项\n" +
+            "```\n" +
+            "\"题解\"\n" +
+            "```\n" +
+            "直接返回题解，类型为String\n" +
+            "3. 检查题解是否对应题目，如果有重复内容，去掉重复内容\n" +
+            "4. 返回的题解格式必须为String字符串类型";
+
+    /**
+     * 新增题目时可以调用AI生成题解 -- 管理员专用
+     * @param questionAddRequest
+     * @return
+     */
+    @PostMapping("/ai_generator")
+    @SaCheckRole(UserConstant.ADMIN_ROLE)
+    public BaseResponse<String> generateAnswerByAI(@RequestBody QuestionAddRequest questionAddRequest) {
+        ThrowUtils.throwIf(questionAddRequest == null, ErrorCode.PARAMS_ERROR);
+        String answer = aiManager.doSyncStableRequest(GENERATOR_ANSWER_SYSTEM_MESSAGE, questionAddRequest.getTitle());
+        int start = answer.indexOf("\"");
+        int end = answer.lastIndexOf("\"");
+        answer = answer.substring(start + 1, end);
+        return ResultUtils.success(answer);
     }
 
     /**
