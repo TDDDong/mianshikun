@@ -174,6 +174,12 @@
             <artifactId>oapi-java-sdk</artifactId>
             <version>release-V4-2.3.2</version>
         </dependency>
+        <!-- 火山引擎AI -->
+        <dependency>
+            <groupId>com.volcengine</groupId>
+            <artifactId>volcengine-java-sdk-ark-runtime</artifactId>
+            <version>0.1.152</version>
+        </dependency>
     </dependencies>
 
     <build>

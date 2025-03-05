@@ -1,5 +1,6 @@
 package com.dd.mianshikun.manager;
 
+import com.volcengine.ark.runtime.service.ArkService;
 import com.zhipu.oapi.ClientV4;
 import com.zhipu.oapi.Constants;
 import com.zhipu.oapi.service.v4.model.*;
@@ -16,11 +17,18 @@ public class AiManager {
     @Resource
     private ClientV4 clientV4;
 
+    @Resource
+    private ArkService arkService;
+
     // 较稳定的随机数
     private static final float STABLE_TEMPERATURE = 0.05f;
 
     // 不稳定的随机数
     private static final float UNSTABLE_TEMPERATURE = 0.99f;
+
+    /**
+     * ===============================================  智谱AI  ========================================================
+     */
 
     /**
      * 同步调用（答案较稳定）
@@ -112,6 +120,27 @@ public class AiManager {
         ModelApiResponse invokeModelApiResp = clientV4.invokeModelApi(chatCompletionRequest);
         return invokeModelApiResp.getFlowable();
     }
+
+    /**
+     * ===============================================  火山引擎AI  ========================================================
+     */
+
+    public String doChat() {
+        final List<com.volcengine.ark.runtime.model.completion.chat.ChatMessage> messages = new ArrayList<>();
+        final com.volcengine.ark.runtime.model.completion.chat.ChatMessage systemMessage = com.volcengine.ark.runtime.model.completion.chat.ChatMessage.builder().role(com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole.SYSTEM).content("你是人工智能助手.").build();
+        final com.volcengine.ark.runtime.model.completion.chat.ChatMessage userMessage = com.volcengine.ark.runtime.model.completion.chat.ChatMessage.builder().role(com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole.USER).content("常见的十字花科植物有哪些？").build();
+        messages.add(systemMessage);
+        messages.add(userMessage);
+
+        com.volcengine.ark.runtime.model.completion.chat.ChatCompletionRequest chatCompletionRequest = com.volcengine.ark.runtime.model.completion.chat.ChatCompletionRequest.builder()
+                // 指定您创建的方舟推理接入点 ID，此处已帮您修改为您的推理接入点 ID
+                .model("deepseek-v3-241226")
+                .messages(messages)
+                .build();
+
+        return String.valueOf(arkService.createChatCompletion(chatCompletionRequest).getChoices().get(0));
+    }
+
 
 
 }
