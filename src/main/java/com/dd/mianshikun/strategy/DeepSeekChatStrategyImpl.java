@@ -1,5 +1,9 @@
 package com.dd.mianshikun.strategy;
 
+import cn.hutool.core.collection.CollUtil;
+import com.dd.mianshikun.common.ErrorCode;
+import com.dd.mianshikun.exception.BusinessException;
+import com.volcengine.ark.runtime.model.completion.chat.ChatCompletionChoice;
 import com.volcengine.ark.runtime.model.completion.chat.ChatCompletionRequest;
 import com.volcengine.ark.runtime.model.completion.chat.ChatMessage;
 import com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole;
@@ -43,12 +47,14 @@ public class DeepSeekChatStrategyImpl implements AiChatStrategy {
 
     public String doRequest(List<ChatMessage> messages, Double temperature) {
         ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest.builder()
-                // 指定您创建的方舟推理接入点 ID，此处已帮您修改为您的推理接入点 ID
                 .model("deepseek-v3-241226")
                 .messages(messages)
                 .temperature(temperature)
                 .build();
-
-        return String.valueOf(arkService.createChatCompletion(chatCompletionRequest).getChoices().get(0));
+        List<ChatCompletionChoice> choices = arkService.createChatCompletion(chatCompletionRequest).getChoices();
+        if (CollUtil.isNotEmpty(choices)) {
+            return (String) choices.get(0).getMessage().getContent();
+        }
+        throw new BusinessException(ErrorCode.OPERATION_ERROR, "DeepSeek 调用失败，没有返回结果");
     }
 }

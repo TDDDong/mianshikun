@@ -1,5 +1,8 @@
 package com.dd.mianshikun.strategy;
 
+import cn.hutool.core.collection.CollUtil;
+import com.dd.mianshikun.common.ErrorCode;
+import com.dd.mianshikun.exception.BusinessException;
 import com.zhipu.oapi.ClientV4;
 import com.zhipu.oapi.Constants;
 import com.zhipu.oapi.service.v4.model.*;
@@ -10,7 +13,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service("ZHIPU")
+@Service("ZHI_PU")
 public class ZhiPuChatStrategyImpl implements AiChatStrategy {
     @Resource
     private ClientV4 clientV4;
@@ -70,8 +73,11 @@ public class ZhiPuChatStrategyImpl implements AiChatStrategy {
                 .messages(messages)
                 .build();
         ModelApiResponse invokeModelApiResp = clientV4.invokeModelApi(chatCompletionRequest);
-        ChatMessage result = invokeModelApiResp.getData().getChoices().get(0).getMessage();
-        return result.getContent().toString();
+        List<Choice> choices = invokeModelApiResp.getData().getChoices();
+        if (CollUtil.isNotEmpty(choices)) {
+            return (String) choices.get(0).getMessage().getContent();
+        }
+        throw new BusinessException(ErrorCode.OPERATION_ERROR, "智谱AI 调用失败，没有返回结果");
     }
 
     /**

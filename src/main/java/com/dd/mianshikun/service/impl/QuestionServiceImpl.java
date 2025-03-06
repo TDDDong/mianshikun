@@ -1,6 +1,8 @@
 package com.dd.mianshikun.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -17,11 +19,13 @@ import com.dd.mianshikun.model.dto.question.QuestionQueryRequest;
 import com.dd.mianshikun.model.entity.Question;
 import com.dd.mianshikun.model.entity.QuestionBankQuestion;
 import com.dd.mianshikun.model.entity.User;
+import com.dd.mianshikun.model.enums.AiModelEnum;
 import com.dd.mianshikun.model.vo.QuestionVO;
 import com.dd.mianshikun.model.vo.UserVO;
 import com.dd.mianshikun.service.QuestionBankQuestionService;
 import com.dd.mianshikun.service.QuestionService;
 import com.dd.mianshikun.service.UserService;
+import com.dd.mianshikun.strategy.AiChatStrategy;
 import com.dd.mianshikun.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
@@ -31,6 +35,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
@@ -47,6 +52,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -67,6 +73,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
     @Resource
     private ElasticsearchRestTemplate elasticsearchRestTemplate;
+
+    @Autowired
+    Map<String, AiChatStrategy> chatStrategyMap;
 
     /**
      * 校验数据
@@ -334,5 +343,36 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "删除题目题库关联失败");
             }
         }
+    }
+
+    @Override
+    public boolean aiGenerateQuestions(String questionType, int number, int modelKey, User user) {
+        if (ObjectUtil.hasEmpty(questionType, number, user)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
+        }
+        //定义系统 Prompt
+        String systemPrompt = "你是一位专业的程序员面试官，你要帮我生成 {数量} 道 {方向} 面试题，要求输出格式如下：\n" +
+                "\n" +
+                "1. 什么是 Java 中的反射？\n" +
+                "2. Java 8 中的 Stream API 有什么作用？\n" +
+                "3. xxxxxx\n" +
+                "\n" +
+                "除此之外，请不要输出任何多余的内容，不要输出开头、也不要输出结尾，只输出上面的列表。\n" +
+                "\n" +
+                "接下来我会给你要生成的题目{数量}、以及题目{方向}\n";
+        //拼接用户 Prompt
+        String userPrompt = String.format("题目数量：%s, 题目方向：%s", number, questionType);
+        //根据modelKey选取对应的策略类
+        String model = AiModelEnum.getModelByKey(modelKey);
+        ThrowUtils.throwIf(StrUtil.isBlank(model), ErrorCode.NOT_FOUND_ERROR);
+        AiChatStrategy chatStrategy = chatStrategyMap.get(model);
+        String result = chatStrategy.doSyncStableRequest(systemPrompt, userPrompt);
+        //TODO 处理返回结果
+        /**
+         * 生成结果示例如下：
+         * deepSeek："1. 什么是 Java 中的多态性，它是如何实现的？\n2. Java 中的垃圾回收机制是如何工作的？"
+         * 智谱："1. 请解释 Java 中的静态绑定和动态绑定的区别。\n2. 如何在 Java 中实现单例模式？并说明为什么这样实现可以保证线程安全。"
+         */
+        return true;
     }
 }
