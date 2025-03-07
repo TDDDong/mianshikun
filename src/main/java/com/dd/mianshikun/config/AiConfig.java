@@ -22,7 +22,10 @@ public class AiConfig {
 
     @Bean
     public ClientV4 getClient() {
-        return new ClientV4.Builder(zhipuKey).build();
+        return new ClientV4.Builder(zhipuKey)
+                //多个请求任务调用时可能会默认等待时间10s 需要自定义参数
+                .networkConfig(30, 60, 60, 60, TimeUnit.SECONDS)
+                .build();
     }
 
     @Bean

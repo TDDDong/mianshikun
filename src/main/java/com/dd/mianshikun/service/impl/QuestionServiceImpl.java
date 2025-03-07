@@ -45,14 +45,12 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StopWatch;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -367,12 +365,77 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         ThrowUtils.throwIf(StrUtil.isBlank(model), ErrorCode.NOT_FOUND_ERROR);
         AiChatStrategy chatStrategy = chatStrategyMap.get(model);
         String result = chatStrategy.doSyncStableRequest(systemPrompt, userPrompt);
-        //TODO 处理返回结果
+        //处理返回结果
         /**
          * 生成结果示例如下：
          * deepSeek："1. 什么是 Java 中的多态性，它是如何实现的？\n2. Java 中的垃圾回收机制是如何工作的？"
          * 智谱："1. 请解释 Java 中的静态绑定和动态绑定的区别。\n2. 如何在 Java 中实现单例模式？并说明为什么这样实现可以保证线程安全。"
          */
+        //按行拆分
+        List<String> lines = Arrays.asList(result.split("\n"));
+        //移除序号和特殊符号
+        List<String> titleList = lines.stream()
+                .map(line -> StrUtil.removePrefix(line, StrUtil.subBefore(line, " ", false)))
+                .map(line -> line.replace("`", "")) // 移除 `
+                .collect(Collectors.toList());
+        //保存题目到数据库中
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        /**
+         * 同步执行时间：request end, id: 61f57c96-1522-4c2e-b1a0-b5c12120e0de, cost: 38556ms
+         */
+        /*
+        List<Question> questionList = titleList.stream().map(title -> {
+            Question question = new Question();
+            question.setTitle(title);
+            question.setUserId(user.getId());
+            question.setTags("[\"待审核\"]");
+            question.setAnswer(aiGenerateQuestionAnswer(title, chatStrategy));
+            return question;
+        }).collect(Collectors.toList());*/
+        /**
+         * 异步执行时间：request end, id: 3d4aba2a-d987-4918-a0db-5d42f7d8a8f0, cost: 20503ms
+         */
+        List<CompletableFuture<Question>> futureList = titleList.stream().map(title -> CompletableFuture.supplyAsync(() -> {
+            Question question = new Question();
+            question.setTitle(title);
+            question.setUserId(user.getId());
+            question.setTags("[\"待审核\"]");
+            question.setAnswer(aiGenerateQuestionAnswer(title, chatStrategy));
+            return question;
+        })).collect(Collectors.toList());
+        List<Question> questionList = futureList.stream().map(CompletableFuture::join).collect(Collectors.toList());
+        stopWatch.stop();
+        long totalTimeMillis = stopWatch.getTotalTimeMillis();
+        System.out.println("生成题解时间：" + totalTimeMillis);
+
+        boolean res = this.saveBatch(questionList);
+        if (!res) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "保存题目失败");
+        }
         return true;
+    }
+
+    /**
+     * AI 生成题解
+     *
+     * @param questionTitle
+     * @return
+     */
+    private String aiGenerateQuestionAnswer(String questionTitle, AiChatStrategy chatStrategy) {
+        // 1. 定义系统 Prompt
+        String systemPrompt = "你是一位专业的程序员面试官，我会给你一道面试题，请帮我生成详细的题解。要求如下：\n" +
+                "\n" +
+                "1. 题解的语句要自然流畅\n" +
+                "2. 题解可以先给出总结性的回答，再详细解释\n" +
+                "3. 要使用 Markdown 语法输出\n" +
+                "\n" +
+                "除此之外，请不要输出任何多余的内容，不要输出开头、也不要输出结尾，只输出题解。\n" +
+                "\n" +
+                "接下来我会给你要生成的面试题";
+        // 2. 拼接用户 Prompt
+        String userPrompt = String.format("面试题：%s", questionTitle);
+        // 3. 调用 AI 生成题解
+        return chatStrategy.doSyncStableRequest(systemPrompt, userPrompt);
     }
 }
