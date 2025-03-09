@@ -7,6 +7,7 @@ import com.dd.mianshikun.model.dto.question.QuestionQueryRequest;
 import com.dd.mianshikun.model.entity.Question;
 import com.dd.mianshikun.model.entity.User;
 import com.dd.mianshikun.model.vo.QuestionVO;
+import reactor.core.publisher.Flux;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -75,5 +76,7 @@ public interface QuestionService extends IService<Question> {
      */
     void batchDeleteQuestions(List<Long> questionIdList);
 
-    boolean aiGenerateQuestions(String questionType, int number, int modelKey, User loginUser);
+    boolean aiGenerateQuestions(String questionType, int number, int modelKey, User user);
+
+    Flux<String> aiStreamGenerateQuestions(String questionType, int number, int modelKey, User user);
 }

@@ -32,6 +32,7 @@ import com.dd.mianshikun.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -73,12 +74,14 @@ public class QuestionController {
     @SaCheckRole(UserConstant.ADMIN_ROLE)
     public BaseResponse<Long> addQuestion(@RequestBody QuestionAddRequest questionAddRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(questionAddRequest == null, ErrorCode.PARAMS_ERROR);
-        // todo 在此处将实体类和 DTO 进行转换
         Question question = new Question();
         BeanUtils.copyProperties(questionAddRequest, question);
+        List<String> tags = questionAddRequest.getTags();
+        if (tags != null) {
+            question.setTags(JSONUtil.toJsonStr(tags));
+        }
         // 数据校验
         questionService.validQuestion(question, true);
-        // todo 填充默认值
         User loginUser = userService.getLoginUser(request);
         question.setUserId(loginUser.getId());
         // 写入数据库
@@ -160,9 +163,12 @@ public class QuestionController {
         if (questionUpdateRequest == null || questionUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // todo 在此处将实体类和 DTO 进行转换
         Question question = new Question();
         BeanUtils.copyProperties(questionUpdateRequest, question);
+        List<String> tags = questionUpdateRequest.getTags();
+        if (tags != null) {
+            question.setTags(JSONUtil.toJsonStr(tags));
+        }
         // 数据校验
         questionService.validQuestion(question, false);
         // 判断是否存在
@@ -183,7 +189,7 @@ public class QuestionController {
      */
     @GetMapping("/get/vo")
     @HotKeyCheck(value = ClassConstant.QUESTION)
-    public BaseResponse<QuestionVO> getQuestionVOById(long id, HttpServletRequest request) {
+    public BaseResponse<QuestionVO> getQuestionVOById(Long id, HttpServletRequest request) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         // 检测和处置爬虫
         User loginUser = userService.getLoginUser(request);
@@ -424,5 +430,24 @@ public class QuestionController {
         questionService.aiGenerateQuestions(questionType, number, modelKey, loginUser);
         // 返回结果
         return ResultUtils.success(true);
+    }
+
+    @PostMapping("/ai/stream/generate/question")
+    @SaCheckRole(UserConstant.ADMIN_ROLE)
+    public BaseResponse<Flux<String>> aiStreamGenerateQuestions(@RequestBody QuestionAIGenerateRequest questionAIGenerateRequest,
+                                                                HttpServletRequest request) {
+        String questionType = questionAIGenerateRequest.getQuestionType();
+        int number = questionAIGenerateRequest.getNumber();
+        int modelKey = questionAIGenerateRequest.getModelKey();
+        // 校验参数
+        ThrowUtils.throwIf(StrUtil.isBlank(questionType), ErrorCode.PARAMS_ERROR, "题目类型不能为空");
+        ThrowUtils.throwIf(number <= 0, ErrorCode.PARAMS_ERROR, "题目数量必须大于 0");
+        ThrowUtils.throwIf(modelKey <= 0, ErrorCode.PARAMS_ERROR, "必须选择一个大模型");
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        // 调用 AI 流式生成题目
+        Flux<String> flux = questionService.aiStreamGenerateQuestions(questionType, number, modelKey, loginUser);
+        // 返回结果
+        return ResultUtils.success(flux);
     }
 }
