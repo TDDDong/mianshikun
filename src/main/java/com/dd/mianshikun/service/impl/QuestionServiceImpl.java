@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.dd.mianshikun.common.ErrorCode;
+import com.dd.mianshikun.constant.AiPromptConstant;
 import com.dd.mianshikun.constant.CommonConstant;
 import com.dd.mianshikun.exception.BusinessException;
 import com.dd.mianshikun.exception.ThrowUtils;
@@ -46,6 +47,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StopWatch;
+import reactor.core.publisher.Flux;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -348,23 +350,13 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         if (ObjectUtil.hasEmpty(questionType, number, user)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
         }
-        //定义系统 Prompt
-        String systemPrompt = "你是一位专业的程序员面试官，你要帮我生成 {数量} 道 {方向} 面试题，要求输出格式如下：\n" +
-                "\n" +
-                "1. 什么是 Java 中的反射？\n" +
-                "2. Java 8 中的 Stream API 有什么作用？\n" +
-                "3. xxxxxx\n" +
-                "\n" +
-                "除此之外，请不要输出任何多余的内容，不要输出开头、也不要输出结尾，只输出上面的列表。\n" +
-                "\n" +
-                "接下来我会给你要生成的题目{数量}、以及题目{方向}\n";
         //拼接用户 Prompt
         String userPrompt = String.format("题目数量：%s, 题目方向：%s", number, questionType);
         //根据modelKey选取对应的策略类
         String model = AiModelEnum.getModelByKey(modelKey);
         ThrowUtils.throwIf(StrUtil.isBlank(model), ErrorCode.NOT_FOUND_ERROR);
         AiChatStrategy chatStrategy = chatStrategyMap.get(model);
-        String result = chatStrategy.doSyncStableRequest(systemPrompt, userPrompt);
+        String result = chatStrategy.doSyncStableRequest(AiPromptConstant.generateQuestionSysPrompt, userPrompt);
         //处理返回结果
         /**
          * 生成结果示例如下：
@@ -416,6 +408,22 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         return true;
     }
 
+    @Override
+    public Flux<String> aiStreamGenerateQuestions(String questionType, int number, int modelKey, User user) {
+        if (ObjectUtil.hasEmpty(questionType, number, user)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
+        }
+        //拼接用户 Prompt
+        String userPrompt = String.format("题目数量：%s, 题目方向：%s", number, questionType);
+        //根据modelKey选取对应的策略类
+        String model = AiModelEnum.getModelByKey(modelKey);
+        ThrowUtils.throwIf(StrUtil.isBlank(model), ErrorCode.NOT_FOUND_ERROR);
+        AiChatStrategy chatStrategy = chatStrategyMap.get(model);
+        String result = chatStrategy.doSyncStableRequest(AiPromptConstant.generateQuestionSysPrompt, userPrompt);
+        //处理返回结果
+        return null;
+    }
+
     /**
      * AI 生成题解
      *
@@ -423,19 +431,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
      * @return
      */
     private String aiGenerateQuestionAnswer(String questionTitle, AiChatStrategy chatStrategy) {
-        // 1. 定义系统 Prompt
-        String systemPrompt = "你是一位专业的程序员面试官，我会给你一道面试题，请帮我生成详细的题解。要求如下：\n" +
-                "\n" +
-                "1. 题解的语句要自然流畅\n" +
-                "2. 题解可以先给出总结性的回答，再详细解释\n" +
-                "3. 要使用 Markdown 语法输出\n" +
-                "\n" +
-                "除此之外，请不要输出任何多余的内容，不要输出开头、也不要输出结尾，只输出题解。\n" +
-                "\n" +
-                "接下来我会给你要生成的面试题";
-        // 2. 拼接用户 Prompt
+        // 拼接用户 Prompt
         String userPrompt = String.format("面试题：%s", questionTitle);
-        // 3. 调用 AI 生成题解
-        return chatStrategy.doSyncStableRequest(systemPrompt, userPrompt);
+        // 调用 AI 生成题解
+        return chatStrategy.doSyncStableRequest(AiPromptConstant.generateAnswerSysPrompt, userPrompt);
     }
 }

@@ -1,6 +1,7 @@
 package com.dd.mianshikun.strategy;
 
 import cn.hutool.core.collection.CollUtil;
+import com.alibaba.fastjson.JSON;
 import com.dd.mianshikun.common.ErrorCode;
 import com.dd.mianshikun.exception.BusinessException;
 import com.zhipu.oapi.ClientV4;
@@ -8,10 +9,12 @@ import com.zhipu.oapi.Constants;
 import com.zhipu.oapi.service.v4.model.*;
 import io.reactivex.Flowable;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service("ZHI_PU")
 public class ZhiPuChatStrategyImpl implements AiChatStrategy {
@@ -80,6 +83,17 @@ public class ZhiPuChatStrategyImpl implements AiChatStrategy {
         throw new BusinessException(ErrorCode.OPERATION_ERROR, "智谱AI 调用失败，没有返回结果");
     }
 
+
+    @Override
+    public Flux<?> doStreamStableRequest(String systemMessage, String userMessage) {
+        return Flux.just(doStreamRequest(systemMessage, userMessage, STABLE_TEMPERATURE));
+    }
+
+    @Override
+    public Flux<?> doStreamUnstableRequest(String systemMessage, String userMessage) {
+        return Flux.just(doStreamRequest(systemMessage, userMessage, UNSTABLE_TEMPERATURE));
+    }
+
     /**
      * 通用流式请求（简化消息传递）
      *
@@ -117,6 +131,4 @@ public class ZhiPuChatStrategyImpl implements AiChatStrategy {
         ModelApiResponse invokeModelApiResp = clientV4.invokeModelApi(chatCompletionRequest);
         return invokeModelApiResp.getFlowable();
     }
-
-
 }
