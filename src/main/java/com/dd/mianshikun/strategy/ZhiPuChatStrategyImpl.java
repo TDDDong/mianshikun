@@ -85,13 +85,29 @@ public class ZhiPuChatStrategyImpl implements AiChatStrategy {
 
 
     @Override
-    public Flux<?> doStreamStableRequest(String systemMessage, String userMessage) {
-        return Flux.just(doStreamRequest(systemMessage, userMessage, STABLE_TEMPERATURE));
+    public Flowable<Character> doStreamStableRequest(String systemMessage, String userMessage) {
+        Flowable<ModelData> flowable = doStreamRequest(systemMessage, userMessage, STABLE_TEMPERATURE);
+        ArrayList<Character> list = new ArrayList<>();
+        Flowable<Character> newFlowable = flowable.map(chunk -> chunk.getChoices().get(0).getDelta().getContent()).flatMap(message -> {
+            for (char c : message.toCharArray()) {
+                list.add(c);
+            }
+            return Flux.fromIterable(list);
+        });
+        return newFlowable;
     }
 
     @Override
-    public Flux<?> doStreamUnstableRequest(String systemMessage, String userMessage) {
-        return Flux.just(doStreamRequest(systemMessage, userMessage, UNSTABLE_TEMPERATURE));
+    public Flowable<Character> doStreamUnstableRequest(String systemMessage, String userMessage) {
+        Flowable<ModelData> flowable = doStreamRequest(systemMessage, userMessage, UNSTABLE_TEMPERATURE);
+        ArrayList<Character> list = new ArrayList<>();
+        Flowable<Character> newFlowable = flowable.map(chunk -> chunk.getChoices().get(0).getDelta().getContent()).flatMap(message -> {
+            for (char c : message.toCharArray()) {
+                list.add(c);
+            }
+            return Flux.fromIterable(list);
+        });
+        return newFlowable;
     }
 
     /**

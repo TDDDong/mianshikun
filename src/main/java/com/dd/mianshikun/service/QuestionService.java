@@ -7,6 +7,7 @@ import com.dd.mianshikun.model.dto.question.QuestionQueryRequest;
 import com.dd.mianshikun.model.entity.Question;
 import com.dd.mianshikun.model.entity.User;
 import com.dd.mianshikun.model.vo.QuestionVO;
+import io.reactivex.Flowable;
 import reactor.core.publisher.Flux;
 
 import javax.servlet.http.HttpServletRequest;
@@ -78,5 +79,5 @@ public interface QuestionService extends IService<Question> {
 
     boolean aiGenerateQuestions(String questionType, int number, int modelKey, User user);
 
-    Flux<String> aiStreamGenerateQuestions(String questionType, int number, int modelKey, User user);
+    Flowable<Character> aiStreamGenerateQuestions(String questionType, int number, int modelKey);
 }

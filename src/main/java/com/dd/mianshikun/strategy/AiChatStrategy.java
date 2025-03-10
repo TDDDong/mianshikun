@@ -1,6 +1,7 @@
 package com.dd.mianshikun.strategy;
 
 
+import io.reactivex.Flowable;
 import reactor.core.publisher.Flux;
 
 public interface AiChatStrategy {
@@ -9,7 +10,7 @@ public interface AiChatStrategy {
 
     String doSyncUnstableRequest(String systemMessage, String userMessage);
 
-    Flux<?> doStreamStableRequest(String systemMessage, String userMessage);
+    Flowable<Character> doStreamStableRequest(String systemMessage, String userMessage);
 
-    Flux<?> doStreamUnstableRequest(String systemMessage, String userMessage);
+    Flowable<Character> doStreamUnstableRequest(String systemMessage, String userMessage);
 }

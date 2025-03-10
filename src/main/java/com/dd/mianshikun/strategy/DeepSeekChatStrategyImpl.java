@@ -60,13 +60,29 @@ public class DeepSeekChatStrategyImpl implements AiChatStrategy {
     }
 
     @Override
-    public Flux<?> doStreamStableRequest(String systemMessage, String userMessage) {
-        return Flux.just(doStreamRequest(systemMessage, userMessage, STABLE_TEMPERATURE));
+    public Flowable<Character> doStreamStableRequest(String systemMessage, String userMessage) {
+        Flowable<ChatCompletionChunk> flowable = doStreamRequest(systemMessage, userMessage, STABLE_TEMPERATURE);
+        List<Character> list = new ArrayList<>();
+        Flowable<Character> newFlowable = flowable.map(item -> String.valueOf(item.getChoices().get(0).getMessage().getContent())).flatMap(content -> {
+            for (char ch : content.toCharArray()) {
+                list.add(ch);
+            }
+            return Flowable.fromIterable(list);
+        });
+        return newFlowable;
     }
 
     @Override
-    public Flux<?> doStreamUnstableRequest(String systemMessage, String userMessage) {
-        return Flux.just(doStreamRequest(systemMessage, userMessage, UNSTABLE_TEMPERATURE));
+    public Flowable<Character> doStreamUnstableRequest(String systemMessage, String userMessage) {
+        Flowable<ChatCompletionChunk> flowable = doStreamRequest(systemMessage, userMessage, UNSTABLE_TEMPERATURE);
+        List<Character> list = new ArrayList<>();
+        Flowable<Character> newFlowable = flowable.map(item -> String.valueOf(item.getChoices().get(0).getMessage().getContent())).flatMap(content -> {
+            for (char ch : content.toCharArray()) {
+                list.add(ch);
+            }
+            return Flowable.fromIterable(list);
+        });
+        return newFlowable;
     }
 
     private Flowable<ChatCompletionChunk> doStreamRequest(String systemMessage, String userMessage, Double temperature) {

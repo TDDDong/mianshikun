@@ -28,6 +28,7 @@ import com.dd.mianshikun.service.QuestionService;
 import com.dd.mianshikun.service.UserService;
 import com.dd.mianshikun.strategy.AiChatStrategy;
 import com.dd.mianshikun.utils.SqlUtils;
+import io.reactivex.Flowable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -409,8 +410,8 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
     }
 
     @Override
-    public Flux<String> aiStreamGenerateQuestions(String questionType, int number, int modelKey, User user) {
-        if (ObjectUtil.hasEmpty(questionType, number, user)) {
+    public Flowable<Character> aiStreamGenerateQuestions(String questionType, int number, int modelKey) {
+        if (ObjectUtil.hasEmpty(questionType, number)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
         }
         //拼接用户 Prompt
@@ -419,9 +420,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         String model = AiModelEnum.getModelByKey(modelKey);
         ThrowUtils.throwIf(StrUtil.isBlank(model), ErrorCode.NOT_FOUND_ERROR);
         AiChatStrategy chatStrategy = chatStrategyMap.get(model);
-        String result = chatStrategy.doSyncStableRequest(AiPromptConstant.generateQuestionSysPrompt, userPrompt);
+        Flowable<Character> flux = chatStrategy.doStreamStableRequest(AiPromptConstant.generateQuestionSysPrompt, userPrompt);
         //处理返回结果
-        return null;
+        return flux;
     }
 
     /**

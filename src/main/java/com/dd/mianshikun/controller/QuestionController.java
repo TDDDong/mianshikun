@@ -29,9 +29,12 @@ import com.dd.mianshikun.model.vo.QuestionVO;
 import com.dd.mianshikun.service.QuestionBankQuestionService;
 import com.dd.mianshikun.service.QuestionService;
 import com.dd.mianshikun.service.UserService;
+import io.reactivex.Flowable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 import javax.annotation.Resource;
@@ -432,10 +435,10 @@ public class QuestionController {
         return ResultUtils.success(true);
     }
 
-    @PostMapping("/ai/stream/generate/question")
-    @SaCheckRole(UserConstant.ADMIN_ROLE)
-    public BaseResponse<Flux<String>> aiStreamGenerateQuestions(@RequestBody QuestionAIGenerateRequest questionAIGenerateRequest,
-                                                                HttpServletRequest request) {
+    @GetMapping(value = "/ai/stream/generate/question")
+    //@SaCheckRole(UserConstant.ADMIN_ROLE)
+    public SseEmitter aiStreamGenerateQuestions(QuestionAIGenerateRequest questionAIGenerateRequest,
+                                                HttpServletRequest request) {
         String questionType = questionAIGenerateRequest.getQuestionType();
         int number = questionAIGenerateRequest.getNumber();
         int modelKey = questionAIGenerateRequest.getModelKey();
@@ -443,11 +446,13 @@ public class QuestionController {
         ThrowUtils.throwIf(StrUtil.isBlank(questionType), ErrorCode.PARAMS_ERROR, "题目类型不能为空");
         ThrowUtils.throwIf(number <= 0, ErrorCode.PARAMS_ERROR, "题目数量必须大于 0");
         ThrowUtils.throwIf(modelKey <= 0, ErrorCode.PARAMS_ERROR, "必须选择一个大模型");
-        // 获取当前登录用户
-        User loginUser = userService.getLoginUser(request);
         // 调用 AI 流式生成题目
-        Flux<String> flux = questionService.aiStreamGenerateQuestions(questionType, number, modelKey, loginUser);
+        Flowable<Character> flux = questionService.aiStreamGenerateQuestions(questionType, number, modelKey);
         // 返回结果
-        return ResultUtils.success(flux);
+        SseEmitter sseEmitter = new SseEmitter(0L);
+        flux.doOnNext(ch -> {
+            sseEmitter.send(ch);
+        }).doOnComplete(sseEmitter::complete).subscribe();
+        return sseEmitter;
     }
 }
