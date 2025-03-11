@@ -1,6 +1,7 @@
 package com.dd.mianshikun.strategy;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.dd.mianshikun.common.ErrorCode;
 import com.dd.mianshikun.exception.BusinessException;
 import com.volcengine.ark.runtime.model.completion.chat.*;
@@ -62,13 +63,10 @@ public class DeepSeekChatStrategyImpl implements AiChatStrategy {
     @Override
     public Flowable<Character> doStreamStableRequest(String systemMessage, String userMessage) {
         Flowable<ChatCompletionChunk> flowable = doStreamRequest(systemMessage, userMessage, STABLE_TEMPERATURE);
-        List<Character> list = new ArrayList<>();
-        Flowable<Character> newFlowable = flowable.map(item -> String.valueOf(item.getChoices().get(0).getMessage().getContent())).flatMap(content -> {
-            for (char ch : content.toCharArray()) {
-                list.add(ch);
-            }
-            return Flowable.fromIterable(list);
-        });
+        Flowable<Character> newFlowable = flowable.map(item -> String.valueOf(item.getChoices().get(0).getMessage().getContent()))
+                .map(message -> message.replaceAll("\\s", ""))
+                .filter(StrUtil::isNotEmpty)
+                .flatMap(message -> Flux.fromIterable(() -> message.chars().mapToObj(c -> (char) c).iterator()));
         return newFlowable;
     }
 

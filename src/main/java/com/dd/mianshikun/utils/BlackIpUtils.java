@@ -1,4 +1,4 @@
-package com.dd.mianshikun.blackfilter;
+package com.dd.mianshikun.utils;
 
 import cn.hutool.bloomfilter.BitMapBloomFilter;
 import cn.hutool.core.util.StrUtil;

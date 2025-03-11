@@ -1,5 +1,6 @@
-package com.dd.mianshikun.blackfilter;
+package com.dd.mianshikun.filter;
 
+import com.dd.mianshikun.utils.BlackIpUtils;
 import com.dd.mianshikun.utils.NetUtils;
 
 import javax.servlet.*;
@@ -7,7 +8,7 @@ import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
-@WebFilter(urlPatterns = "/*", filterName = "blackIpFilter")
+@WebFilter(urlPatterns = "/*", filterName = "blackIpFilter", asyncSupported = true)
 public class BlackIpFilter implements Filter {
 
     @Override

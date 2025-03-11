@@ -1,4 +1,4 @@
-package com.dd.mianshikun.blackfilter;
+package com.dd.mianshikun.utils;
 
 import com.alibaba.nacos.api.annotation.NacosInjected;
 import com.alibaba.nacos.api.config.ConfigService;

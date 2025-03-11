@@ -1,6 +1,7 @@
 package com.dd.mianshikun.strategy;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.dd.mianshikun.common.ErrorCode;
 import com.dd.mianshikun.exception.BusinessException;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Flux;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -87,13 +89,10 @@ public class ZhiPuChatStrategyImpl implements AiChatStrategy {
     @Override
     public Flowable<Character> doStreamStableRequest(String systemMessage, String userMessage) {
         Flowable<ModelData> flowable = doStreamRequest(systemMessage, userMessage, STABLE_TEMPERATURE);
-        ArrayList<Character> list = new ArrayList<>();
-        Flowable<Character> newFlowable = flowable.map(chunk -> chunk.getChoices().get(0).getDelta().getContent()).flatMap(message -> {
-            for (char c : message.toCharArray()) {
-                list.add(c);
-            }
-            return Flux.fromIterable(list);
-        });
+        Flowable<Character> newFlowable = flowable.map(chunk -> chunk.getChoices().get(0).getDelta().getContent())
+                .map(message -> message.replaceAll("\\s", ""))
+                .filter(StrUtil::isNotEmpty)
+                .flatMap(message -> Flux.fromIterable(() -> message.chars().mapToObj(c -> (char) c).iterator()));
         return newFlowable;
     }
 

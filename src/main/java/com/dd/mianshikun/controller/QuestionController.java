@@ -451,6 +451,7 @@ public class QuestionController {
         // 返回结果
         SseEmitter sseEmitter = new SseEmitter(0L);
         flux.doOnNext(ch -> {
+            System.out.println(ch);
             sseEmitter.send(ch);
         }).doOnComplete(sseEmitter::complete).subscribe();
         return sseEmitter;
