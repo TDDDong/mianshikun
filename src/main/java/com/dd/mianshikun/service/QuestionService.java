@@ -77,7 +77,18 @@ public interface QuestionService extends IService<Question> {
      */
     void batchDeleteQuestions(List<Long> questionIdList);
 
+    /**
+     * 调用AI生成题目  同步
+     */
     boolean aiGenerateQuestions(String questionType, int number, int modelKey, User user);
 
+    /**
+     * 调用AI生成题目  流式
+     */
     Flowable<Character> aiStreamGenerateQuestions(String questionType, int number, int modelKey);
+
+    /**
+     * 调用AI生成答案  流式
+     */
+    Flowable<Character> aiStreamGenerateAnswer(String question, int modelKey);
 }

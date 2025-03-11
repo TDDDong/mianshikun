@@ -437,8 +437,7 @@ public class QuestionController {
 
     @GetMapping(value = "/ai/stream/generate/question")
     //@SaCheckRole(UserConstant.ADMIN_ROLE)
-    public SseEmitter aiStreamGenerateQuestions(QuestionAIGenerateRequest questionAIGenerateRequest,
-                                                HttpServletRequest request) {
+    public SseEmitter aiStreamGenerateQuestions(QuestionAIGenerateRequest questionAIGenerateRequest) {
         String questionType = questionAIGenerateRequest.getQuestionType();
         int number = questionAIGenerateRequest.getNumber();
         int modelKey = questionAIGenerateRequest.getModelKey();
@@ -451,7 +450,23 @@ public class QuestionController {
         // 返回结果
         SseEmitter sseEmitter = new SseEmitter(0L);
         flux.doOnNext(ch -> {
-            System.out.println(ch);
+            sseEmitter.send(ch);
+        }).doOnComplete(sseEmitter::complete).subscribe();
+        return sseEmitter;
+    }
+
+    @GetMapping(value = "/ai/stream/generate/answer")
+    public SseEmitter aiStreamGenerateAnswer(AnswerAIGenerateRequest answerAIGenerateRequest) {
+        String question = answerAIGenerateRequest.getQuestion();
+        int modelKey = answerAIGenerateRequest.getModelKey();
+        //校验参数
+        ThrowUtils.throwIf(StrUtil.isBlank(question), ErrorCode.PARAMS_ERROR, "题目不能为空");
+        ThrowUtils.throwIf(modelKey <= 0, ErrorCode.PARAMS_ERROR, "必须选择一个大模型");
+        //调用AI流式生成答案
+        Flowable<Character> flux = questionService.aiStreamGenerateAnswer(question, modelKey);
+        // 返回结果
+        SseEmitter sseEmitter = new SseEmitter(0L);
+        flux.doOnNext(ch -> {
             sseEmitter.send(ch);
         }).doOnComplete(sseEmitter::complete).subscribe();
         return sseEmitter;

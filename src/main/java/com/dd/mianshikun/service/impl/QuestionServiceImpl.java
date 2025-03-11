@@ -437,4 +437,20 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         // 调用 AI 生成题解
         return chatStrategy.doSyncStableRequest(AiPromptConstant.generateAnswerSysPrompt, userPrompt);
     }
+
+    @Override
+    public Flowable<Character> aiStreamGenerateAnswer(String question, int modelKey) {
+        if (ObjectUtil.hasEmpty(question, modelKey)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
+        }
+        //拼接用户 Prompt
+        String userPrompt = String.format("面试题：%s", question);
+        //根据modelKey选取对应的策略类
+        String model = AiModelEnum.getModelByKey(modelKey);
+        ThrowUtils.throwIf(StrUtil.isBlank(model), ErrorCode.NOT_FOUND_ERROR);
+        AiChatStrategy chatStrategy = chatStrategyMap.get(model);
+        Flowable<Character> flux = chatStrategy.doStreamStableRequest(AiPromptConstant.generateAnswerSysPrompt, userPrompt);
+        //处理返回结果
+        return flux;
+    }
 }
